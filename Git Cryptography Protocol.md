@@ -20,14 +20,14 @@ This specification is subject to the [Community Specification License 1.0][2].
 
 1. [Foreword](#Foreword)
 2. [Introduction](#Introduction)
-  1. [Scope](#Scope)
-  2. [Normative References](#Normative References)
-  3. [Terms and Definitions](#Terms and Definitions)
+   1. [Scope](#Scope)
+   2. [Normative References](#Normative References)
+   3. [Terms and Definitions](#Terms and Definitions)
 3. [The Protocol](#The Protocol)
 4. [The Server](#The Server)
 5. [The Client](#The Client)
 6. [Signing a Git Object](#Signing a Git Object)
-  1. [The Returned Signature Data](#The Returned Signature Data)
+   1. [The Returned Signature Data](#The Returned Signature Data)
 7. [Verifying a Signed Git Object](#Verifying a Signed Git Object)
 8. [Conclusion](#Conclusion)
 9. [Bibliography](#Bibliography)
@@ -344,8 +344,6 @@ S: OK
 ## Conclusion
 
 The goal of this modification is to make Git able to use any signing and verification tools that understand this protocol. This eliminates all of the code that is specific to a signing tool and eases maintenance while increasing flexibility.
-
-## Bibliography
 
 [0]: https://www.iso.org/files/live/sites/isoorg/files/developing_standards/docs/en/how-to-write-standards.pdf
 [1]: https://www.iso.org/files/live/sites/isoorg/files/developing_standards/docs/en/model_document-rice_model.pdf

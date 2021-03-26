@@ -17,12 +17,10 @@ The inspiration for this work came out of two mentorships hosted by Hyperledger 
 * Instructions on how to contribute are in [Contributing.md][5].
 * Our code of conduct is in [Code of Conduct][6].
 
-## Bibliography
-
 [0]: https://github.com/CommunitySpecification/1.0
 [1]: http://www.jointdevelopment.org
 [2]: http://openwebfoundation.org
 [3]: http://aomedia.org/license/patent-license/
-[4]: https://github.com/TrustFrame/Git%20Cryptography%20Protocol.md
-[5]: https://github.com/TrustFrame/Contributing.md
-[6]: https://github.com/TrustFrame/Code%20of%20Conduct.md
+[4]: https://github.com/TrustFrame/git-cryptography-protocol/blob/main/Git%20Cryptography%20Protocol.md
+[5]: https://github.com/TrustFrame/git-cryptography-protocol/blob/main/Contributing.md
+[6]: https://github.com/TrustFrame/git-cryptography-protocol/blob/main/Code%20of%20Conduct.md
