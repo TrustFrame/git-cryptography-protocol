@@ -6,10 +6,10 @@ The inspiration for this work came out of two mentorships hosted by Hyperledger 
 
 ## Status
 
-[ ] Update the prototype patches to adhere to this specification.
-[ ] Submit the patches and specification for review.
-[ ] Incorporate feedback.
-[ ] Merged and released.
+- [ ] Update the prototype patches to adhere to this specification.
+- [ ] Submit the patches and specification for review.
+- [ ] Incorporate feedback.
+- [ ] Merged and released.
 
 ## Repository Contents
 
