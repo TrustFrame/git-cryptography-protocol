@@ -18,19 +18,18 @@ This specification is subject to the [Community Specification License 1.0][2].
 
 ## Contents
 
-1. [Foreword](#Foreword)
-2. [Introduction](#Introduction)
-   1. [Scope](#Scope)
-   2. [Normative References](#Normative References)
-   3. [Terms and Definitions](#Terms and Definitions)
-3. [The Protocol](#The Protocol)
-4. [The Server](#The Server)
-5. [The Client](#The Client)
-6. [Signing a Git Object](#Signing a Git Object)
-   1. [The Returned Signature Data](#The Returned Signature Data)
-7. [Verifying a Signed Git Object](#Verifying a Signed Git Object)
-8. [Conclusion](#Conclusion)
-9. [Bibliography](#Bibliography)
+1. [Foreword](#foreword)
+2. [Introduction](#introduction)
+   1. [Scope](#scope)
+   2. [Normative References](#normative-references)
+   3. [Terms and Definitions](#terms-and-definitions)
+3. [The Protocol](#the-protocol)
+4. [The Server](#the-server)
+5. [The Client](#the-client)
+6. [Signing a Git Object](#signing-a-git-object)
+   1. [The Returned Signature Data](#the-returned-signature-data)
+7. [Verifying a Signed Git Object](#verifying-a-signed-git-object)
+8. [Conclusion](#conclusion)
 
 ## Foreword
 
