@@ -7,7 +7,7 @@ To help you, the ISO/TMP has published a [guide on writing standards][0].
 A model manuscript is available of a draft International Standard known as [“The Rice Model”][1]
 
 In addition, we recommend using the key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" as described in RFC 2119 - https://tools.ietf.org/html/rfc2119
- 
+
 ## Git Cryptography Protocol
 ### Version 0.0.1
 ### Status Pre-draft
@@ -48,7 +48,7 @@ THESE MATERIALS ARE PROVIDED “AS IS.” The Contributors and Licensees express
 ## Introduction
 
 This specification documents the new protocol Git uses when interracting with cryptographic signing and verification tools. The protocol takes is inspired by the [Assuan Protocol][4] used by GPG to link its component executables together.
- 
+
 ### Scope
 
 This specification...
@@ -290,20 +290,20 @@ S: OK
 C: OPTION min_trust_level=marginal
 S: OK
 C: SIGNATURE
-C: D -----BEGIN PGP SIGNATURE-----
-C: D 
-C: D iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8
-C: D fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL
-C: D 8RQR368L0+caDlaZW51VZVP2UBXP6w0=
-C: D =1Fby
-C: D -----END PGP SIGNATURE-----
+C: D -----BEGIN PGP SIGNATURE-----%0A
+C: D %0A
+C: D iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0A
+C: D fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0A
+C: D 8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0A
+C: D =1Fby%0A
+C: D -----END PGP SIGNATURE-----%0A
 C: END
 S: OK
 C: VERIFY
-C: D tag v0.0.1
-C: D Tagger: Jane Hacker <jane@h.com>
-C: D
-C: D First release.
+C: D tag v0.0.1%0A
+C: D Tagger: Jane Hacker <jane@h.com>%0A
+C: D %0A
+C: D First release.%0A
 C: END
 S: D Sinature made Sun 18 Oct 2020 03:14:17 AM PDT using RSA key ID DFBBCC13
 S: D Good signature from "Jane Hacker <jane@h.com>"
@@ -319,19 +319,19 @@ S: OK
 C: OPTION min_trust_level=marginal
 S: OK
 C: SIGNATURE
-C: D -----BEGIN PGP SIGNATURE-----
-C: D 
-C: D iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8
-C: D 8RQR368L0+caDlaZW51VZVP2UBXP6w0=
-C: D =1Fby
-C: D -----END PGP SIGNATURE-----
+C: D -----BEGIN PGP SIGNATURE-----%0A
+C: D %0A
+C: D iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0A
+C: D 8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0A
+C: D =1Fby%0A
+C: D -----END PGP SIGNATURE-----%0A
 C: END
 S: OK
 C: VERIFY
-C: D tag v0.0.1
-C: D Tagger: Jane Hacker <jane@h.com>
-C: D
-C: D First release.
+C: D tag v0.0.1%0A
+C: D Tagger: Jane Hacker <jane@h.com>%0A
+C: D %0A
+C: D First release.%0A
 C: END
 S: D Signature made Sun 18 Oct 2020 03:14:17 AM PDT using RSA key ID DFBBCC13
 S: D BAD signature from "Jane Hacker <jane@h.com>"
