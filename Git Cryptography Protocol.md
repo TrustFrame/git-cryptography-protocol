@@ -193,20 +193,20 @@ S: OK
 C: OPTION detached=true
 S: OK
 C: SIGN
-C: D tag v0.0.1
-C: D Tagger: Jane Hacker <jane@h.com>
-C: D
-C: D First release.
+C: D tag v0.0.1%0A
+C: D Tagger: Jane Hacker <jane@h.com>%0A
+C: D %0A
+C: D First release.%0A
 C: END
 S: D sigtype:openpgp
 S: D sigoption:min_trust_level=marginal
-S: D sig:-----BEGIN PGP SIGNATURE-----
-S: D sig:
-S: D sig:iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8
-S: D sig:fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL
-S: D sig:8RQR368L0+caDlaZW51VZVP2UBXP6w0=
-S: D sig:=1Fby
-S: D sig:-----END PGP SIGNATURE-----
+S: D sig:-----BEGIN PGP SIGNATURE-----%0A
+S: D sig:%0A
+S: D sig:iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0A
+S: D sig:fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0A
+S: D sig:8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0A
+S: D sig:=1Fby%0A
+S: D sig:-----END PGP SIGNATURE-----%0A
 S: OK
 C: BYE
 S: OK
@@ -258,13 +258,13 @@ Tagger: Jane Hacker <jane@h.com>
 First release.
 sigtype:openpgp
 sigoption:min_trust_level=marginal
-sig:-----BEGIN PGP SIGNATURE-----
-sig:
-sig:iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8
-sig:fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL
-sig:8RQR368L0+caDlaZW51VZVP2UBXP6w0=
-sig:=1Fby
-sig:-----END PGP SIGNATURE-----
+sig:-----BEGIN PGP SIGNATURE-----%0A
+sig:%0A
+sig:iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0A
+sig:fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0A
+sig:8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0A
+sig:=1Fby%0A
+sig:-----END PGP SIGNATURE-----%0A
 ```
 
 ## Verifying a Signed Git Object
