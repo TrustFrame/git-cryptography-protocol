@@ -1,20 +1,10 @@
-# Community Specification Template 1.0
-
-Community Specifications are recommended to be drafted in accordance with international best practices.  Doing so provides clarity, helps adoption, and also eases the transition of this specification to other standards body if so desired.  Accordingly, the recommended template below is based on ISO standard drafting conventions.
-
-To help you, the ISO/TMP has published a [guide on writing standards][0].
-
-A model manuscript is available of a draft International Standard known as [“The Rice Model”][1]
-
-In addition, we recommend using the key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" as described in RFC 2119 - https://tools.ietf.org/html/rfc2119
-
-## Git Cryptography Protocol
-### Version 0.0.1
-### Status Pre-draft
+# Git Cryptography Protocol
+## Version 0.0.1
+## Status Pre-draft
 
 © 2021 TrustFrame, Inc.
 
-This specification is subject to the [Community Specification License 1.0][2].
+This specification is subject to the [Community Specification License 1.0][0].
 
 ## Contents
 
@@ -41,13 +31,13 @@ This document was prepared by TrustFrame, Inc.
 
 Known patent licensing exclusions are available in the specification’s repository’s Notices.md file.
 
-Any feedback or questions on this document should be directed to the [specification repository][3].
+Any feedback or questions on this document should be directed to the [specification repository][1].
 
 THESE MATERIALS ARE PROVIDED “AS IS.” The Contributors and Licensees expressly disclaim any warranties (express, implied, or otherwise), including implied warranties of merchantability, non-infringement, fitness for a particular purpose, or title, related to the materials.  The entire risk as to implementing or otherwise using the materials is assumed by the implementer and user. IN NO EVENT WILL THE CONTRIBUTORS OR LICENSEES BE LIABLE TO ANY OTHER PARTY FOR LOST PROFITS OR ANY FORM OF INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES OF ANY CHARACTER FROM ANY CAUSES OF ACTION OF ANY KIND WITH RESPECT TO THIS DELIVERABLE OR ITS GOVERNING AGREEMENT, WHETHER BASED ON BREACH OF CONTRACT, TORT (INCLUDING NEGLIGENCE), OR OTHERWISE, AND WHETHER OR NOT THE OTHER MEMBER HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Introduction
 
-This specification documents the new protocol Git uses when interracting with cryptographic signing and verification tools. The protocol takes is inspired by the [Assuan Protocol][4] used by GPG to link its component executables together. This protocol differs from the Assuan Protocol by reducing the command set and also uses [Git's pkt-line framing][5].
+This specification documents the new protocol Git uses when interracting with cryptographic signing and verification tools. The protocol takes is inspired by the [Assuan Protocol][2] used by GPG to link its component executables together. This protocol differs from the Assuan Protocol by reducing the command set and also uses [Git's pkt-line framing][3].
 
 ### Scope
 
@@ -417,9 +407,7 @@ S: 0006OK
 
 The goal of this modification is to make Git able to use any signing and verification tools that understand this protocol. This eliminates all of the code that is specific to a signing tool and eases maintenance while increasing flexibility.
 
-[0]: https://www.iso.org/files/live/sites/isoorg/files/developing_standards/docs/en/how-to-write-standards.pdf
-[1]: https://www.iso.org/files/live/sites/isoorg/files/developing_standards/docs/en/model_document-rice_model.pdf
-[2]: https://github.com/CommunitySpecification/1.0
-[3]: https://github.com/TrustFrame/git-cryptography-protocol
-[4]: https://www.gnupg.org/documentation/manuals/assuan/index.html
-[5]: https://github.com/git/git/blob/master/Documentation/technical/protocol-common.txt
+[0]: https://github.com/CommunitySpecification/1.0
+[1]: https://github.com/TrustFrame/git-cryptography-protocol
+[2]: https://www.gnupg.org/documentation/manuals/assuan/index.html
+[3]: https://github.com/git/git/blob/master/Documentation/technical/protocol-common.txt
