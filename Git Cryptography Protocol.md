@@ -1,5 +1,5 @@
 # Git Cryptography Protocol
-## Version 0.0.1
+## Version 0.0.2
 ## Status Pre-draft
 
 © 2021 TrustFrame, Inc.
