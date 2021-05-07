@@ -1,5 +1,5 @@
 # Git Cryptography Protocol
-## Version 0.0.2
+## Version 0.0.3
 ## Status Pre-draft
 
 © 2021 TrustFrame, Inc.
@@ -143,7 +143,7 @@ SIGN
 ```
 The sign command initiates a cryptographic signing operation. Immediately following the SIGN command, the client must send one or more `D` commands sending the server the data to be signed. The data is encoded as hexadecimal string to simplify client implementation. The data is terminated with an `END` command, signaling to the server to sign the data and return the signature.
 
-The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains tagged values that are to be stored in the Git object. These tagged values may include `sigtype`, `sigoptions`, `sigkey`, and `sig` values. They are significant for the verification process and described below in the section on verification.
+The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains fields that are to be stored in the Git object. These fields include one `sigtype`, zero or more `sigoptions`, and one `sig`. They are significant for the verification process and described below in the section on verification.
 
 ```
 KEY <sigkey data>
@@ -195,12 +195,12 @@ C: 0007END
 S: 0015D sigtype openpgp
 S: 0028D sigoption min_trust_level=marginal
 S: 002aD sig -----BEGIN PGP SIGNATURE-----%0a
-S: 000dD sig %0a
-S: 004dD sig iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
-S: 004dD sig fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
-S: 002dD sig 8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
-S: 0012D sig =1Fby%0a
-S: 0028D sig -----END PGP SIGNATURE-----%0a
+S: 000dD  %0a
+S: 004dD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
+S: 004dD  fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
+S: 002dD  8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
+S: 0012D  =1Fby%0a
+S: 0028D  -----END PGP SIGNATURE-----%0a
 S: 0006OK
 C: 0007BYE
 S: 0006OK
@@ -218,29 +218,24 @@ S: 0006OK
 
 ### The Returned Signature Data
 
-When a signing tool generates a successful signature, it sends to Git one or more `D` commands with signature related data that is intended to be stored verbatim inside of the Git object. The data is formatted so that Git can easily execute a signature verification process in the future. Each line of the signature data starts with a tag and a space (` `) followed by data. Each line of the signature is a maximum of 1000 octets including the tag, space, and the line ending characters (e.g. newline and/or carriage return).
+When a signing tool generates a successful signature, it sends to Git one or more `D` commands with signature related data that is intended to be stored verbatim inside of the Git object. The data is formatted so that Git can easily execute a signature verification process in the future. Each line of the signature data starts with a field name and a space (` `) followed by data.  Multi-line fields have subsequence lines that start with a space (` `) to signal that the line is part of a multiline field value. 
 
-There are four different tags that may be used in the signature data that are defined below:
+There are three different fields that may be used in the signature data that are defined below:
 
 ```
 sigtype <signature scheme name>
 ```
-The `sigtype` tag is used to identify the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `sigtype` tagged line in a given signature and it must be the first line in the signature data.
+The `sigtype` field is used to identify the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `sigtype` field.
 
 ```
 sigoption <option name> = <option value>
 ```
-The `sigoption` tag is used by the signing tool to specify options that Git will pass to the verification tool using the `OPTION` command during a signature verification session. There may be zero or more `sigoption` lines in the signature data.
-
-```
-sigkey <verification key data>
-```
-The `sigkey` tag is used by the signing tool to specify the verification key to be used by the verification tool to verify the signature. There may be zero or more `sigkey` lines in the signature data.
+The `sigoption` field is used by the signing tool to specify options that Git will pass to the verification tool using the `OPTION` command during a signature verification session. There may be zero or more `sigoption` lines in the signature data.
 
 ```
 sig <signature data>
 ```
-The `sig` tag is used by the signing tool to specify the signature data it generated in the signing operation. There may be one or more `sig` lines in the signature data and they must come last in the signature.
+The `sig` field is used by the signing tool to specify the signature data it generated in the signing operation. There may only be one `sig` field and multiline signatures are stored using Git's multiline field encoding where subsequent lines begin with a space (` `).
 
 The resulting signed Git object--in this case a tag--from the successful
 signature example above is as follows:
@@ -253,15 +248,15 @@ First release.
 sigtype openpgp
 sigoption min_trust_level=marginal
 sig -----BEGIN PGP SIGNATURE-----%0a
-sig %0a
-sig iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
-sig fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
-sig 8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
-sig =1Fby%0a
-sig -----END PGP SIGNATURE-----%0a
+ %0a
+ iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
+ fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
+ 8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
+ =1Fby%0a
+ -----END PGP SIGNATURE-----%0a
 ```
 
-A signed Git commit using the new tagging system would look like:
+A signed Git commit using the new format looks like:
 
 ```
 tree eebfed94e75e7760540d1485c740902590a00332
@@ -271,23 +266,23 @@ committer C O Mitter <committer@example.com> 1465981137 +0000
 sigtype openpgp
 sigoption min_trust_level=marginal
 sig -----BEGIN PGP SIGNATURE-----%0a
-sig Version: GnuPG v1%0a
-sig %0a
-sig iQEcBAABAgAGBQJXYRjRAAoJEGEJLoW3InGJ3IwIAIY4SA6GxY3BjL60YyvsJPh/%0a
-sig HRCJwH+w7wt3Yc/9/bW2F+gF72kdHOOs2jfv+OZhq0q4OAN6fvVSczISY/82LpS7%0a
-sig DVdMQj2/YcHDT4xrDNBnXnviDO9G7am/9OE77kEbXrp7QPxvhjkicHNwy2rEflAA%0a
-sig zn075rtEERDHr8nRYiDh8eVrefSO7D+bdQ7gv+7GsYMsd2auJWi1dHOSfTr9HIF4%0a
-sig HJhWXT9d2f8W+diRYXGh4X0wYiGg6na/soXc+vdtDYBzIxanRqjg8jCAeo1eOTk1%0a
-sig EdTwhcTZlI0x5pvJ3H0+4hA2jtldVtmPM4OTB0cTrEWBad7XV6YgiyuII73Ve3I=%0a
-sig =jKHM%0a
-sig -----END PGP SIGNATURE-----%0a
+ Version: GnuPG v1%0a
+ %0a
+ iQEcBAABAgAGBQJXYRjRAAoJEGEJLoW3InGJ3IwIAIY4SA6GxY3BjL60YyvsJPh/%0a
+ HRCJwH+w7wt3Yc/9/bW2F+gF72kdHOOs2jfv+OZhq0q4OAN6fvVSczISY/82LpS7%0a
+ DVdMQj2/YcHDT4xrDNBnXnviDO9G7am/9OE77kEbXrp7QPxvhjkicHNwy2rEflAA%0a
+ zn075rtEERDHr8nRYiDh8eVrefSO7D+bdQ7gv+7GsYMsd2auJWi1dHOSfTr9HIF4%0a
+ HJhWXT9d2f8W+diRYXGh4X0wYiGg6na/soXc+vdtDYBzIxanRqjg8jCAeo1eOTk1%0a
+ EdTwhcTZlI0x5pvJ3H0+4hA2jtldVtmPM4OTB0cTrEWBad7XV6YgiyuII73Ve3I=%0a
+ =jKHM%0a
+ -----END PGP SIGNATURE-----%0a
 
 signed commit
 
 signed commit message body
 ```
 
-A signed Git mergetag using the new tagging system would look like:
+A signed Git mergetag using the new format looks like:
 
 ```
 tree c7b1cff039a93f3600a1d18b82d26688668c7dea
@@ -306,16 +301,16 @@ mergetag object 04b871796dc0420f8e7561a895b52484b701d51a
  sigtype openpgp
  sigoption min_trust_level=marginal
  sig -----BEGIN PGP SIGNATURE-----%0a
- sig Version: GnuPG v1%0a
- sig %0a
- sig iQEcBAABAgAGBQJXYRhOAAoJEGEJLoW3InGJklkIAIcnhL7RwEb/+QeX9enkXhxn%0a
- sig rxfdqrvWd1K80sl2TOt8Bg/NYwrUBw/RWJ+sg/hhHp4WtvE1HDGHlkEz3y11Lkuh%0a
- sig 8tSxS3qKTxXUGozyPGuE90sJfExhZlW4knIQ1wt/yWqM+33E9pN4hzPqLwyrdods%0a
- sig q8FWEqPPUbSJXoMbRPw04S5jrLtZSsUWbRYjmJCHzlhSfFWW4eFd37uquIaLUBS0%0a
- sig rkC3Jrx7420jkIpgFcTI2s60uhSQLzgcCwdA2ukSYIRnjg/zDkj8+3h/GaROJ72x%0a
- sig lZyI6HWixKJkWw8lE9aAOD9TmTW9sFJwcVAzmAuFX2kUreDUKMZduGcoRYGpD7E=%0a
- sig =jpXa%0a
- sig -----END PGP SIGNATURE-----%0a
+  Version: GnuPG v1%0a
+  %0a
+  iQEcBAABAgAGBQJXYRhOAAoJEGEJLoW3InGJklkIAIcnhL7RwEb/+QeX9enkXhxn%0a
+  rxfdqrvWd1K80sl2TOt8Bg/NYwrUBw/RWJ+sg/hhHp4WtvE1HDGHlkEz3y11Lkuh%0a
+  8tSxS3qKTxXUGozyPGuE90sJfExhZlW4knIQ1wt/yWqM+33E9pN4hzPqLwyrdods%0a
+  q8FWEqPPUbSJXoMbRPw04S5jrLtZSsUWbRYjmJCHzlhSfFWW4eFd37uquIaLUBS0%0a
+  rkC3Jrx7420jkIpgFcTI2s60uhSQLzgcCwdA2ukSYIRnjg/zDkj8+3h/GaROJ72x%0a
+  lZyI6HWixKJkWw8lE9aAOD9TmTW9sFJwcVAzmAuFX2kUreDUKMZduGcoRYGpD7E=%0a
+  =jpXa%0a
+  -----END PGP SIGNATURE-----%0a
 
 Merge tag 'signedtag' into downstream
 
