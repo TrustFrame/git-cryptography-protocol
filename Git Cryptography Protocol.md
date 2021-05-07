@@ -1,5 +1,5 @@
 # Git Cryptography Protocol
-## Version 0.0.3
+## Version 0.0.4
 ## Status Pre-draft
 
 © 2021 TrustFrame, Inc.
@@ -143,12 +143,7 @@ SIGN
 ```
 The sign command initiates a cryptographic signing operation. Immediately following the SIGN command, the client must send one or more `D` commands sending the server the data to be signed. The data is encoded as hexadecimal string to simplify client implementation. The data is terminated with an `END` command, signaling to the server to sign the data and return the signature.
 
-The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains fields that are to be stored in the Git object. These fields include one `sigtype`, zero or more `sigoptions`, and one `sig`. They are significant for the verification process and described below in the section on verification.
-
-```
-KEY <sigkey data>
-```
-Send `sigkey` data, if any, to the server before a `VERIFY` command. This is used for signature schemes that publish the public key along with the signature.
+The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains fields that are to be stored in the Git object. These fields include one `signtype`, zero or more `signoptions`, and one `sign`. They are significant for the verification process and described below in the section on verification.
 
 ```
 SIGNATURE
@@ -192,9 +187,9 @@ C: 0029D Tagger: Jane Hacker <jane@h.com>%0a
 C: 0005D %0a
 C: 0017D First release.%0a
 C: 0007END
-S: 0015D sigtype openpgp
-S: 0028D sigoption min_trust_level=marginal
-S: 002aD sig -----BEGIN PGP SIGNATURE-----%0a
+S: 0015D signtype openpgp
+S: 0028D signoption min_trust_level=marginal
+S: 002aD sign -----BEGIN PGP SIGNATURE-----%0a
 S: 000dD  %0a
 S: 004dD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
 S: 004dD  fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
@@ -223,19 +218,19 @@ When a signing tool generates a successful signature, it sends to Git one or mor
 There are three different fields that may be used in the signature data that are defined below:
 
 ```
-sigtype <signature scheme name>
+signtype <signature scheme name>
 ```
-The `sigtype` field is used to identify the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `sigtype` field.
+The `signtype` field is used to identify the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `signtype` field.
 
 ```
-sigoption <option name> = <option value>
+signoption <option name> = <option value>
 ```
-The `sigoption` field is used by the signing tool to specify options that Git will pass to the verification tool using the `OPTION` command during a signature verification session. There may be zero or more `sigoption` lines in the signature data.
+The `signoption` field is used by the signing tool to specify options that Git will pass to the verification tool using the `OPTION` command during a signature verification session. There may be zero or more `signoption` lines in the signature data.
 
 ```
-sig <signature data>
+sign <signature data>
 ```
-The `sig` field is used by the signing tool to specify the signature data it generated in the signing operation. There may only be one `sig` field and multiline signatures are stored using Git's multiline field encoding where subsequent lines begin with a space (` `).
+The `sign` field is used by the signing tool to specify the signature data it generated in the signing operation. There may only be one `sign` field and multiline signatures are stored using Git's multiline field encoding where subsequent lines begin with a space (` `).
 
 The resulting signed Git object--in this case a tag--from the successful
 signature example above is as follows:
@@ -245,9 +240,9 @@ tag v0.0.1
 Tagger: Jane Hacker <jane@h.com>
 
 First release.
-sigtype openpgp
-sigoption min_trust_level=marginal
-sig -----BEGIN PGP SIGNATURE-----%0a
+signtype openpgp
+signoption min_trust_level=marginal
+sign -----BEGIN PGP SIGNATURE-----%0a
  %0a
  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
  fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
@@ -263,9 +258,9 @@ tree eebfed94e75e7760540d1485c740902590a00332
 parent 04b871796dc0420f8e7561a895b52484b701d51a
 author A U Thor <author@example.com> 1465981137 +0000
 committer C O Mitter <committer@example.com> 1465981137 +0000
-sigtype openpgp
-sigoption min_trust_level=marginal
-sig -----BEGIN PGP SIGNATURE-----%0a
+signtype openpgp
+signoption min_trust_level=marginal
+sign -----BEGIN PGP SIGNATURE-----%0a
  Version: GnuPG v1%0a
  %0a
  iQEcBAABAgAGBQJXYRjRAAoJEGEJLoW3InGJ3IwIAIY4SA6GxY3BjL60YyvsJPh/%0a
@@ -294,13 +289,9 @@ mergetag object 04b871796dc0420f8e7561a895b52484b701d51a
  type commit
  tag signedtag
  tagger C O Mitter <committer@example.com> 1465981006 +0000
-
- signed tag
-
- signed tag message body
- sigtype openpgp
- sigoption min_trust_level=marginal
- sig -----BEGIN PGP SIGNATURE-----%0a
+ signtype openpgp
+ signoption min_trust_level=marginal
+ sign -----BEGIN PGP SIGNATURE-----%0a
   Version: GnuPG v1%0a
   %0a
   iQEcBAABAgAGBQJXYRhOAAoJEGEJLoW3InGJklkIAIcnhL7RwEb/+QeX9enkXhxn%0a
@@ -311,6 +302,10 @@ mergetag object 04b871796dc0420f8e7561a895b52484b701d51a
   lZyI6HWixKJkWw8lE9aAOD9TmTW9sFJwcVAzmAuFX2kUreDUKMZduGcoRYGpD7E=%0a
   =jpXa%0a
   -----END PGP SIGNATURE-----%0a
+
+ signed tag
+
+ signed tag message body
 
 Merge tag 'signedtag' into downstream
 
@@ -329,17 +324,16 @@ signed tag message body
 
 The general flow of the signed Git object verification process is as follows:
 
-1. Git parses the `sigtype` line from the signed object to determine the signature scheme used to generate the signature.
+1. Git parses the `signtype` field from the signed object to determine the signature scheme used to generate the signature.
 2. Git calculates the verifying executable to execute from the config file and command line options using the signature scheme name.
 3. Git pipe-forks a child process to execute the verification executable. For the purposes of the protocol, Git is the client and the verification tool is the server.
 4. The verification tool starts the session by sending an `OK` command.
-5. Git parses any `sigoption` lines from the signed object and issues one `OPTION` command for each `sigoption` line. The verification tool sends an `OK` command in response to each `OPTION` command if the option is valid. If the option is not valid, the verification tool sends an `ERR` command to signal failure and the verification session is terminated using steps 10 and 11 below.
-6. Git parses any `sigkey` lines from the signed object and issues the `KEY` command followed by `D` commands to pass the data from the `sigkey` lines to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the key data. The verification tool then responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification session is terminated using steps 10 and 11 below.
-7. Git parses the `sig` lines and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification session is terminated using steps X and Y below.
-8. Git sends the `VERIFY` command followed by one or more `D` commands to send the object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
-9. The verification tool responds with one or more `D` commands with the results of the verification process. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
-10. Git then sends the `BYE` command to end the session.
-11. The verification tool acknowledges the session ending by sending an `OK` command and then exits execution.
+5. Git parses any `signoption` fields from the signed object and issues one `OPTION` command for each `signoption` line. The verification tool sends an `OK` command in response to each `OPTION` command if the option is valid. If the option is not valid, the verification tool sends an `ERR` command to signal failure and the verification session is terminated using steps 10 and 11 below.
+6. Git parses the `sign` field and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification session is terminated using steps X and Y below.
+7. Git sends the `VERIFY` command followed by one or more `D` commands to send the object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
+8. The verification tool responds with one or more `D` commands with the results of the verification process. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
+9. Git then sends the `BYE` command to end the session.
+10. The verification tool acknowledges the session ending by sending an `OK` command and then exits execution.
 
 An example successful verification session is illustrated below. The lines beginning with "S: " are sent from the verification tool to Git and lines starting with "C: " are sent from Git to the signing tool.
 
