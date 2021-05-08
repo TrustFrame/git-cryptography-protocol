@@ -175,7 +175,7 @@ An example successful signing session is illustrated below. The lines beginning 
 S: 0006OK
 C: 002eOPTION identifier=Jane Hacker <jane@h.com>
 S: 0006OK
-C: 001fOPTION min_trust_level=marginal
+C: 001fOPTION minTrustLevel=marginal
 S: 0006OK
 C: 0017OPTION armored=true
 S: 0006OK
@@ -188,7 +188,7 @@ C: 0005D %0a
 C: 0017D First release.%0a
 C: 0007END
 S: 0015D signtype openpgp
-S: 0028D signoption min_trust_level=marginal
+S: 0028D signoption minTrustLevel=marginal
 S: 002aD sign -----BEGIN PGP SIGNATURE-----%0a
 S: 000dD  %0a
 S: 004dD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
@@ -241,7 +241,7 @@ Tagger: Jane Hacker <jane@h.com>
 
 First release.
 signtype openpgp
-signoption min_trust_level=marginal
+signoption minTrustLevel=marginal
 sign -----BEGIN PGP SIGNATURE-----%0a
  %0a
  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
@@ -259,7 +259,7 @@ parent 04b871796dc0420f8e7561a895b52484b701d51a
 author A U Thor <author@example.com> 1465981137 +0000
 committer C O Mitter <committer@example.com> 1465981137 +0000
 signtype openpgp
-signoption min_trust_level=marginal
+signoption minTrustLevel=marginal
 sign -----BEGIN PGP SIGNATURE-----%0a
  Version: GnuPG v1%0a
  %0a
@@ -290,7 +290,7 @@ mergetag object 04b871796dc0420f8e7561a895b52484b701d51a
  tag signedtag
  tagger C O Mitter <committer@example.com> 1465981006 +0000
  signtype openpgp
- signoption min_trust_level=marginal
+ signoption minTrustLevel=marginal
  sign -----BEGIN PGP SIGNATURE-----%0a
   Version: GnuPG v1%0a
   %0a
@@ -339,7 +339,7 @@ An example successful verification session is illustrated below. The lines begin
 
 ```
 S: 0006OK
-C: 0023OPTION min_trust_level=marginal
+C: 0023OPTION minTrustLevel=marginal
 S: 0006OK
 C: 000dSIGNATURE
 C: 0026D -----BEGIN PGP SIGNATURE-----%0a
@@ -368,7 +368,7 @@ An example of a failed verification session is illustrated below.
 
 ```
 S: 0006OK
-C: 0023OPTION min_trust_level=marginal
+C: 0023OPTION minTrustLevel=marginal
 S: 0006OK
 C: 000dSIGNATURE
 C: 0026D -----BEGIN PGP SIGNATURE-----%0a
