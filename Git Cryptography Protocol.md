@@ -1,5 +1,5 @@
 # Git Cryptography Protocol
-## Version 0.0.4
+## Version 0.0.5
 ## Status Pre-draft
 
 © 2021 TrustFrame, Inc.
@@ -136,7 +136,7 @@ Tells the server the client is finished. The server will respond with OK, then t
 ```
 # <string>
 ```
-Comment line issued only for debugging purposes and totally ignored by clients.
+Comment line issued only for debugging purposes and totally ignored by servers.
 
 ```
 SIGN
@@ -162,17 +162,19 @@ The general flow of the Git object signing process is as follows:
 1. Git calculates the signing executable to execute from the config file and command line options.
 2. Git pipe-forks a child process to execute the signing executable. For the purposes of the protocol, Git is the client and the signing tool is the server.
 3. The signing tool starts the session by sending an `OK` command.
-4. Git issues zero or more `OPTION` commands to the signing tool to pass the options from the config file and command line that relate to the signing operation. The signing tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the signing tool responds with an `ERR` command and the signing session will en following steps 8 and 9 below.
-5. Git issues the `SIGN` command followed by one or more `D` commands to pass the Git object data to the signing tool to be signed. Git sends and `END` command after the last `D` command to signal the end of the data.
-6. If the signing tool successfully signs the data, it responds with one or more `D` commands containing data that must be stored in the Git object verbatim. The signing tool sends the `OK` command after the last `D` command to signal a successful signing.
-7. If the signing tool fails to sign the data, it responds with zero or more `D` commands containing detailed error data to be output from Git's stderr stream. The signing tool sends the `ERR` command after the last `D` command to signal a failed signing and the optional "reason" string with the `ERR` command is also output to Git's stderr stream.
-8. Git then sends the `BYE` command to conclude the signing session.
-9. The signing tool acknowledges the session ending by sending an `OK` command and exiting execution.
+4. Git issues zero or more `OPTION` commands to the signing tool to pass the options from the config file. The signing tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the signing tool responds with an `ERR` command and the signing session will en following steps 9 and 10 below. Git will pass all options and not all of them may be relevant to the signing operation. The signing tool shall ignore all options that are not relevant and only return an `ERR` response to relevant options with invalid values. A good example is an option to set the identifier that has an invalid value such as an unknown identifier.
+5. Git issues zero or more `OPTION` commands to the signing tool to pass the '--sign-option' options from the command line. Because these come last, they override any prior options from the config file that have the same token.
+6. Git issues the `SIGN` command followed by one or more `D` commands to pass the Git object data to the signing tool to be signed. Git sends and `END` command after the last `D` command to signal the end of the data.
+7. If the signing tool successfully signs the data, it responds with one or more `D` commands containing data that must be stored in the Git object verbatim. The signing tool sends the `OK` command after the last `D` command to signal a successful signing.
+8. If the signing tool fails to sign the data, it responds with zero or more `D` commands containing detailed error data to be output from Git's stderr stream. The signing tool sends the `ERR` command after the last `D` command to signal a failed signing and the optional "reason" string with the `ERR` command is also output to Git's stderr stream.
+9. Git then sends the `BYE` command to conclude the signing session.
+10. The signing tool acknowledges the session ending by sending an `OK` command and exiting execution.
 
 An example successful signing session is illustrated below. The lines beginning with "S: " are sent from the signing tool to Git and lines starting with "C:" are sent from Git to the signing tool. **NOTE**: These lines are encoded in pkt-line format that starts with four hexadecimal characters that specify the length of the line. **NOTE:** Every byte of the Git object data passed to the signing tool is significant, this includes the line feed (0x0a) character at the end of each line. To pass line feed as data to the signing tool it must be escaped as '%0a'. The returned signature data also has significant line feeds and will also have escaped line feed characters.
 
 ```
 S: 0006OK
+C: 0014# config options
 C: 002eOPTION identifier=Jane Hacker <jane@h.com>
 S: 0006OK
 C: 001fOPTION minTrustLevel=marginal
@@ -181,14 +183,18 @@ C: 0017OPTION armored=true
 S: 0006OK
 C: 0018OPTION detached=true
 S: 0006OK
+C: 0018# end config options
+C: 001a# command line options
+C: 002bOPTION identifier=Joe Coder <jeo@c.com>
+S: 0006OK
+C: 001e# end command line options
 C: 0008SIGN
 C: 0013D tag v0.0.1%0a
-C: 0029D Tagger: Jane Hacker <jane@h.com>%0a
+C: 0026D tagger: Joe Coder <joe@c.com>%0a
 C: 0005D %0a
 C: 0017D First release.%0a
 C: 0007END
 S: 0015D signtype openpgp
-S: 0028D signoption minTrustLevel=marginal
 S: 002aD sign -----BEGIN PGP SIGNATURE-----%0a
 S: 000dD  %0a
 S: 004dD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
@@ -237,11 +243,8 @@ signature example above is as follows:
 
 ```
 tag v0.0.1
-Tagger: Jane Hacker <jane@h.com>
-
-First release.
+tagger: Joe Coder <joe@c.com>
 signtype openpgp
-signoption minTrustLevel=marginal
 sign -----BEGIN PGP SIGNATURE-----%0a
  %0a
  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
@@ -249,6 +252,8 @@ sign -----BEGIN PGP SIGNATURE-----%0a
  8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
  =1Fby%0a
  -----END PGP SIGNATURE-----%0a
+
+First release.
 ```
 
 A signed Git commit using the new format looks like:
@@ -259,7 +264,6 @@ parent 04b871796dc0420f8e7561a895b52484b701d51a
 author A U Thor <author@example.com> 1465981137 +0000
 committer C O Mitter <committer@example.com> 1465981137 +0000
 signtype openpgp
-signoption minTrustLevel=marginal
 sign -----BEGIN PGP SIGNATURE-----%0a
  Version: GnuPG v1%0a
  %0a
@@ -290,7 +294,6 @@ mergetag object 04b871796dc0420f8e7561a895b52484b701d51a
  tag signedtag
  tagger C O Mitter <committer@example.com> 1465981006 +0000
  signtype openpgp
- signoption minTrustLevel=marginal
  sign -----BEGIN PGP SIGNATURE-----%0a
   Version: GnuPG v1%0a
   %0a
@@ -313,10 +316,10 @@ signed tag
 
 signed tag message body
 
-# gpg: Signature made Wed Jun 15 08:56:46 2016 UTC using RSA key ID B7227189
-# gpg: Good signature from "Eris Discordia <discord@example.net>"
-# gpg: WARNING: This key is not certified with a trusted signature!
-# gpg:          There is no indication that the signature belongs to the owner.
+# Signature made Wed Jun 15 08:56:46 2016 UTC using RSA key ID B7227189
+# Good signature from "Eris Discordia <discord@example.net>"
+# WARNING: This key is not certified with a trusted signature!
+#          There is no indication that the signature belongs to the owner.
 # Primary key fingerprint: D4BE 2231 1AD3 131E 5EDA  29A4 6109 2E85 B722 7189
 ```
 
@@ -328,19 +331,35 @@ The general flow of the signed Git object verification process is as follows:
 2. Git calculates the verifying executable to execute from the config file and command line options using the signature scheme name.
 3. Git pipe-forks a child process to execute the verification executable. For the purposes of the protocol, Git is the client and the verification tool is the server.
 4. The verification tool starts the session by sending an `OK` command.
-5. Git parses any `signoption` fields from the signed object and issues one `OPTION` command for each `signoption` line. The verification tool sends an `OK` command in response to each `OPTION` command if the option is valid. If the option is not valid, the verification tool sends an `ERR` command to signal failure and the verification session is terminated using steps 10 and 11 below.
-6. Git parses the `sign` field and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification session is terminated using steps X and Y below.
-7. Git sends the `VERIFY` command followed by one or more `D` commands to send the object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
-8. The verification tool responds with one or more `D` commands with the results of the verification process. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
-9. Git then sends the `BYE` command to end the session.
-10. The verification tool acknowledges the session ending by sending an `OK` command and then exits execution.
+5. Git parses any `signoption` fields from the signed object and issues `OPTION` commands for each `signoption` field. The verification tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the verification tool responds with an `ERR` command and the verification session will end following steps 11 and 12 below. Git will pass all options to the verification tool and some may not be relevant. The verification tool shall ignore irrelevant options and only respond with `ERR` for relevant options with invalid values.
+6. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the config file. Because these come after the options from the signed object, these overrride any prior options from the signed object that have the same token.
+7. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the command line. Because these come last, they override any prior options from the signed object and the config file that have the same token.
+8. Git parses the `sign` field and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification session is terminated using steps X and Y below.
+9. Git sends the `VERIFY` command followed by one or more `D` commands to send the object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
+10. The verification tool responds with one or more `D` commands with the results of the verification process. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
+11. Git then sends the `BYE` command to end the session.
+12. The verification tool acknowledges the session ending by sending an `OK` command and then exits execution.
 
 An example successful verification session is illustrated below. The lines beginning with "S: " are sent from the verification tool to Git and lines starting with "C: " are sent from Git to the signing tool.
 
 ```
 S: 0006OK
-C: 0023OPTION minTrustLevel=marginal
+C: 001b# signed object options
+C: 001eOPTION minTrustLevel=fully
 S: 0006OK
+C: 001f# end signed object options
+C: 0014# config options
+C: 002eOPTION identifier=Jane Hacker <jane@h.com>
+S: 0006OK
+C: 0021OPTION minTrustLevel=marginal
+S: 0006OK
+C: 0017OPTION armored=true
+S: 0006OK
+C: 0018OPTION detached=true
+S: 0006OK
+C: 0018# end config options
+C: 001a# command line options
+C: 001e# end command line options
 C: 000dSIGNATURE
 C: 0026D -----BEGIN PGP SIGNATURE-----%0a
 C: 0009D %0a
@@ -353,12 +372,12 @@ C: 0007END
 S: 0006OK
 C: 000aVERIFY
 C: 0013D tag v0.0.1%0a
-C: 0029D Tagger: Jane Hacker <jane@h.com>%0a
+C: 0026D Tagger: Joe Coder <joe@c.com>%0a
 C: 0009D %0a
 C: 0017D First release.%0a
 C: 0007END
-S: 004dD Sinature made Sun 18 Oct 2020 03:14:17 AM PDT using RSA key ID DFBBCC13
-S: 0034D Good signature from "Jane Hacker <jane@h.com>"
+S: 004fD Signature made Sun 18 Oct 2020 03:14:17 AM PDT using RSA key ID DFBBCC13
+S: 0031D Good signature from "Joe Coder <joe@c.com>"
 S: 0006OK
 C: 0007BYE
 S: 0006OK
@@ -368,8 +387,20 @@ An example of a failed verification session is illustrated below.
 
 ```
 S: 0006OK
-C: 0023OPTION minTrustLevel=marginal
+C: 001b# signed object options
+C: 001f# end signed object options
+C: 0014# config options
+C: 002eOPTION identifier=Jane Hacker <jane@h.com>
 S: 0006OK
+C: 0021OPTION minTrustLevel=marginal
+S: 0006OK
+C: 0017OPTION armored=true
+S: 0006OK
+C: 0018OPTION detached=true
+S: 0006OK
+C: 0018# end config options
+C: 001a# command line options
+C: 001e# end command line options
 C: 000dSIGNATURE
 C: 0026D -----BEGIN PGP SIGNATURE-----%0a
 C: 0009D %0a
