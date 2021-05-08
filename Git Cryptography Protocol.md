@@ -1,5 +1,5 @@
 # Git Cryptography Protocol
-## Version 0.0.5
+## Version 0.0.6
 ## Status Pre-draft
 
 © 2021 TrustFrame, Inc.
@@ -37,7 +37,7 @@ THESE MATERIALS ARE PROVIDED “AS IS.” The Contributors and Licensees express
 
 ## Introduction
 
-This specification documents the new protocol Git uses when interracting with cryptographic signing and verification tools. The protocol takes is inspired by the [Assuan Protocol][2] used by GPG to link its component executables together. This protocol differs from the Assuan Protocol by reducing the command set and also uses [Git's pkt-line framing][3].
+This specification documents a new, proposed protocol Git uses when interacting with cryptographic signing and verification tools. The goal of this modification is to make Git able to use any signing and verification tools. The design eliminates all of the tool-specific code in Git, easing maintenance and increasing flexibility. The protocol takes is inspired by the [Assuan Protocol][2] used by GPG to link its component executables together but uses [Git's pkt-line framing][3].
 
 ### Scope
 
@@ -81,7 +81,7 @@ Even though pkt-line supports a binary data component, the protocol Base64 encod
 
 The protocol is designed as a client-server protocol with the client being the initiator of the connection and the server the receiver. In the case of Git, it uses the pipe-fork mechanism to spawn a new task and then the protocol is used over the stdin/stdout pipes between the processes. The pipe-forked child process acts as the server and the parent Git process is the client.
 
-In the rest of this document, there are example sessions demonstrating the protocol. In those examples, lines that begin with "S:" are lines sent by the server (the child process) and lines that begin with "C:" are lines sent by the client (the git process).
+In the rest of this document, there are example operations demonstrating the protocol. In those examples, lines that begin with `S:` are lines sent by the server (the child process) and lines that begin with `C:` are lines sent by the client (the git process).
 
 ## The Server
 
@@ -111,7 +111,7 @@ In the Assuan protocol documentation there is a command called `INQUIRE` that is
 
 ## The Client
 
-The client must support five basic commands: `D`, `END`, `OPTION`, `BYE` and `#`. In addition they must also support the signing command: `SIGN`. It also must support the verification commands: `KEY`, `SIGNATURE`, and `VERIFY`. Each of the commands are documented below:
+The client must support five basic commands: `D`, `END`, `OPTION`, `BYE` and `#`. In addition they must also support the signing command: `SIGN`. It also must support the verification commands: `SIGNATURE`, and `VERIFY`. Each of the commands are documented below:
 
 ```
 D <raw data>
@@ -126,7 +126,7 @@ Used by the client to mark the end of raw data.
 ```
 OPTION name [[=] value]
 ```
-Sets and option for the current session. Leading and trailing spaces around the *name* and *value* are allowed but should be ignored. The use of the equal sign is optional but is suggested if *value* is given.
+Sets and option for the current operation. Leading and trailing spaces around the *name* and *value* are allowed but should be ignored. The use of the equal sign is optional but is suggested if *value* is given.
 
 ```
 BYE
@@ -143,7 +143,7 @@ SIGN
 ```
 The sign command initiates a cryptographic signing operation. Immediately following the SIGN command, the client must send one or more `D` commands sending the server the data to be signed. The data is encoded as hexadecimal string to simplify client implementation. The data is terminated with an `END` command, signaling to the server to sign the data and return the signature.
 
-The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains fields that are to be stored in the Git object. These fields include one `signtype`, zero or more `signoptions`, and one `sign`. They are significant for the verification process and described below in the section on verification.
+The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains fields that are to be stored in the Git object. These fields include one `signtype`, zero or more `signoption`, and one `sign`. They are significant for the verification process and described below in the section on verification.
 
 ```
 SIGNATURE
@@ -159,18 +159,18 @@ Initiate the transfer of the signed object data to the server and execute the si
 
 The general flow of the Git object signing process is as follows:
 
-1. Git calculates the signing executable to execute from the config file and command line options.
-2. Git pipe-forks a child process to execute the signing executable. For the purposes of the protocol, Git is the client and the signing tool is the server.
-3. The signing tool starts the session by sending an `OK` command.
-4. Git issues zero or more `OPTION` commands to the signing tool to pass the options from the config file. The signing tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the signing tool responds with an `ERR` command and the signing session will en following steps 9 and 10 below. Git will pass all options and not all of them may be relevant to the signing operation. The signing tool shall ignore all options that are not relevant and only return an `ERR` response to relevant options with invalid values. A good example is an option to set the identifier that has an invalid value such as an unknown identifier.
+1. Git calculates the signing tool to execute from the config file and command line options.
+2. Git pipe-forks a child process to execute the signing tool. For the purposes of the protocol, Git is the client and the signing tool is the server.
+3. The signing tool starts the operation by sending an `OK` command.
+4. Git issues zero or more `OPTION` commands to the signing tool to pass the options from the config file. The signing tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the signing tool responds with an `ERR` command and the signing operation will end following steps 9 and 10 below. Git passes all options to the signing tool and some may not be relevant to the signing operation. The signing tool shall ignore all options that are not relevant and only return an `ERR` response to relevant options with invalid values. A good example is an option to set the identifier that has an invalid value such as an unknown identifier.
 5. Git issues zero or more `OPTION` commands to the signing tool to pass the '--sign-option' options from the command line. Because these come last, they override any prior options from the config file that have the same token.
 6. Git issues the `SIGN` command followed by one or more `D` commands to pass the Git object data to the signing tool to be signed. Git sends and `END` command after the last `D` command to signal the end of the data.
 7. If the signing tool successfully signs the data, it responds with one or more `D` commands containing data that must be stored in the Git object verbatim. The signing tool sends the `OK` command after the last `D` command to signal a successful signing.
 8. If the signing tool fails to sign the data, it responds with zero or more `D` commands containing detailed error data to be output from Git's stderr stream. The signing tool sends the `ERR` command after the last `D` command to signal a failed signing and the optional "reason" string with the `ERR` command is also output to Git's stderr stream.
-9. Git then sends the `BYE` command to conclude the signing session.
-10. The signing tool acknowledges the session ending by sending an `OK` command and exiting execution.
+9. Git then sends the `BYE` command to conclude the signing operation.
+10. The signing tool acknowledges the operation ending by sending an `OK` command and exiting execution.
 
-An example successful signing session is illustrated below. The lines beginning with "S: " are sent from the signing tool to Git and lines starting with "C:" are sent from Git to the signing tool. **NOTE**: These lines are encoded in pkt-line format that starts with four hexadecimal characters that specify the length of the line. **NOTE:** Every byte of the Git object data passed to the signing tool is significant, this includes the line feed (0x0a) character at the end of each line. To pass line feed as data to the signing tool it must be escaped as '%0a'. The returned signature data also has significant line feeds and will also have escaped line feed characters.
+An example successful signing operation is illustrated below. The lines beginning with `S:` are sent from the signing tool to Git and lines starting with `C:` are sent from Git to the signing tool. **NOTE**: These lines are encoded in pkt-line format that starts with four hexadecimal characters that specify the length of the line. **NOTE:** Every byte of the Git object data passed to the signing tool is significant, this includes the line feed (0x0a) character at the end of each line. To pass line feed as data to the signing tool it must be escaped as `%0a`. The returned signature data also has significant line feeds and will also have escaped line feed characters.
 
 ```
 S: 0006OK
@@ -194,20 +194,20 @@ C: 0026D tagger: Joe Coder <joe@c.com>%0a
 C: 0005D %0a
 C: 0017D First release.%0a
 C: 0007END
-S: 0015D signtype openpgp
-S: 002aD sign -----BEGIN PGP SIGNATURE-----%0a
-S: 000dD  %0a
-S: 004dD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
-S: 004dD  fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
-S: 002dD  8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
-S: 0012D  =1Fby%0a
-S: 0028D  -----END PGP SIGNATURE-----%0a
+S: 0016D signtype openpgp
+S: 002bD sign -----BEGIN PGP SIGNATURE-----%0a
+S: 000bD  %0a
+S: 004aD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
+S: 004aD  fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
+S: 002aD  8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
+S: 000fD  =1Fby%0a
+S: 0025D  -----END PGP SIGNATURE-----%0a
 S: 0006OK
 C: 0007BYE
 S: 0006OK
 ```
 
-An example of a signing session that fails because of a bad `OPTION` set by Git. In this example Git passes the signing identity and the signing tool does not have an identity by that name so it responds with the `ERR` command and the reason for the error.
+An example of a signing operation that fails because of a bad `OPTION` set by Git. In this example Git passes the signing identity and the signing tool does not have an identity by that name so it responds with the `ERR` command and the reason for the error.
 
 ```
 S: 0006OK
@@ -219,24 +219,24 @@ S: 0006OK
 
 ### The Returned Signature Data
 
-When a signing tool generates a successful signature, it sends to Git one or more `D` commands with signature related data that is intended to be stored verbatim inside of the Git object. The data is formatted so that Git can easily execute a signature verification process in the future. Each line of the signature data starts with a field name and a space (` `) followed by data.  Multi-line fields have subsequence lines that start with a space (` `) to signal that the line is part of a multiline field value. 
+When a signing tool generates a successful signature, it sends to Git one or more `D` commands with signature related data that is intended to be stored verbatim inside of the Git object. The data is formatted so that Git can easily execute a signature verification process in the future. Each line of the signature data starts with a field name and a space followed by data. Multi-line fileds have subsequent lines that start with a space to identify them as part of a multi-line field value. 
 
 There are three different fields that may be used in the signature data that are defined below:
 
 ```
 signtype <signature scheme name>
 ```
-The `signtype` field is used to identify the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `signtype` field.
+The `signtype` field identifies the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `signtype` field.
 
 ```
 signoption <option name> = <option value>
 ```
-The `signoption` field is used by the signing tool to specify options that Git will pass to the verification tool using the `OPTION` command during a signature verification session. There may be zero or more `signoption` lines in the signature data.
+The `signoption` field specifies options that Git passes to the verification tool using the `OPTION` command during a signature verification operation. There may be zero or more `signoption` fields in the signature data.
 
 ```
 sign <signature data>
 ```
-The `sign` field is used by the signing tool to specify the signature data it generated in the signing operation. There may only be one `sign` field and multiline signatures are stored using Git's multiline field encoding where subsequent lines begin with a space (` `).
+The `sign` field specifies the signature data generated in the signing operation. There shall be only one `sign` field in the signature data and it may contain a multi-line field value.
 
 The resulting signed Git object--in this case a tag--from the successful
 signature example above is as follows:
@@ -327,20 +327,20 @@ signed tag message body
 
 The general flow of the signed Git object verification process is as follows:
 
-1. Git parses the `signtype` field from the signed object to determine the signature scheme used to generate the signature.
-2. Git calculates the verifying executable to execute from the config file and command line options using the signature scheme name.
-3. Git pipe-forks a child process to execute the verification executable. For the purposes of the protocol, Git is the client and the verification tool is the server.
-4. The verification tool starts the session by sending an `OK` command.
-5. Git parses any `signoption` fields from the signed object and issues `OPTION` commands for each `signoption` field. The verification tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the verification tool responds with an `ERR` command and the verification session will end following steps 11 and 12 below. Git will pass all options to the verification tool and some may not be relevant. The verification tool shall ignore irrelevant options and only respond with `ERR` for relevant options with invalid values.
-6. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the config file. Because these come after the options from the signed object, these overrride any prior options from the signed object that have the same token.
+1. Git parses the `signtype` field from the signed object to determine the signature type.
+2. Git calculates the verification tool to execute from the config file and command line options using the signature type.
+3. Git pipe-forks a child process to execute the verification tool. For the purposes of the protocol, Git is the client and the verification tool is the server.
+4. The verification tool starts the operation by sending an `OK` command.
+5. Git parses any `signoption` fields from the signed object and issues `OPTION` commands for each `signoption` field. The verification tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the verification tool responds with an `ERR` command and the verification operation ends, executing steps 11 and 12 below. Git passes all options to the verification tool and some may not be relevant. The verification tool shall ignore options that are not relevant and only respond with `ERR` for relevant options with invalid values.
+6. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the config file. Because these come after the options from the signed object, these override any prior options from the signed object that have the same token.
 7. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the command line. Because these come last, they override any prior options from the signed object and the config file that have the same token.
-8. Git parses the `sign` field and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification session is terminated using steps X and Y below.
+8. Git parses the `sign` field and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification operation is terminated using steps X and Y below.
 9. Git sends the `VERIFY` command followed by one or more `D` commands to send the object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
 10. The verification tool responds with one or more `D` commands with the results of the verification process. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
-11. Git then sends the `BYE` command to end the session.
-12. The verification tool acknowledges the session ending by sending an `OK` command and then exits execution.
+11. Git then sends the `BYE` command to end the operation.
+12. The verification tool acknowledges the operation ending by sending an `OK` command and then exits execution.
 
-An example successful verification session is illustrated below. The lines beginning with "S: " are sent from the verification tool to Git and lines starting with "C: " are sent from Git to the signing tool.
+An example successful verification operation is illustrated below. The lines beginning with `S:` are sent from the verification tool to Git and lines starting with `C:` are sent from Git to the verification tool.
 
 ```
 S: 0006OK
@@ -383,7 +383,7 @@ C: 0007BYE
 S: 0006OK
 ```
 
-An example of a failed verification session is illustrated below.
+An example of a failed verification operation is illustrated below.
 
 ```
 S: 0006OK
@@ -422,10 +422,6 @@ S: 0007ERR
 C: 0007BYE
 S: 0006OK
 ```
-
-## Conclusion
-
-The goal of this modification is to make Git able to use any signing and verification tools that understand this protocol. This eliminates all of the code that is specific to a signing tool and eases maintenance while increasing flexibility.
 
 [0]: https://github.com/CommunitySpecification/1.0
 [1]: https://github.com/TrustFrame/git-cryptography-protocol
