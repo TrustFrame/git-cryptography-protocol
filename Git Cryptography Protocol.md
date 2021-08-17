@@ -1,8 +1,10 @@
 # Git Cryptography Protocol
-## Version 0.0.6
+## Version 0.0.7
 ## Status Pre-draft
 
-© 2021 TrustFrame, Inc.
+[![hackmd-github-sync-badge](https://hackmd.io/uvN6hZqYQs-zcm4b3yoLkg/badge)](https://hackmd.io/uvN6hZqYQs-zcm4b3yoLkg)
+
+© 2021 CryptID Technologies, Inc.
 
 This specification is subject to the [Community Specification License 1.0][0].
 
