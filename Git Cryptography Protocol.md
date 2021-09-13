@@ -2,9 +2,7 @@
 ## Version 0.0.7
 ## Status Pre-draft
 
-[![hackmd-github-sync-badge](https://hackmd.io/uvN6hZqYQs-zcm4b3yoLkg/badge)](https://hackmd.io/uvN6hZqYQs-zcm4b3yoLkg)
-
-© 2021 CryptID Technologies, Inc.
+© 2021 TrustFrame, Inc.
 
 This specification is subject to the [Community Specification License 1.0][0].
 
@@ -77,17 +75,17 @@ ISO and IEC maintain terminological databases for use in standardization at the 
 
 ## The Protocol
 
-The protocol uses Git's pkt-line for framing packets as variable length binary strings. The first four bytes of the line, the pkt-len, indicates the total length of the line, in hexadecimal. The pkt-len includes the 4 bytes used to contain the length's hexadecimal representation. The maximum length of a pkt-line's data component is 65516 bytes and pkt-len MUST NOT exceed 65520 (65516 bytes of data + 4 bytes of length data).
+The protocol uses Git's pkt-line for framing packets as variable length binary strings. The first four bytes of the line, the pkt-len, indicates the total length of the line, in hexadecimal. The pkt-len includes the 4 bytes used to contain the length's hexadecimal representation. The maximum length of a pkt-line's data component is 65515 bytes and pkt-len MUST NOT exceed 65520 (65515 bytes of data + 4 bytes of length data + 1 trailing newline).
 
-Even though pkt-line supports a binary data component, the protocol Base64 encodes all binary data sent to, and received from, the signing/verifying tools. The primary reason for this is to ensure that Git can store received signatures directly in tag and commit objects without any processing. This is compatible with the assumptions about the existing GPG signing code that instructs GPG to create ASCII encoded signatures that are stored directly in tag and commit objects.
+Even though pkt-line supports a binary data component, the protocol URL-safe Base64 encodes all binary data sent to, and received from, the signing/verifying tools. The primary reason for this is to ensure that Git can store received signatures directly in tag and commit objects without any processing. All digital signatures are encoded in a variant of URL-safe Base64 called ["Qualified Base64" or QB64][4] which was developed as part of the work at the Decentralized Identity Foundation for encoding all cryptographic constructs in a self-describing way.
 
-The protocol is designed as a client-server protocol with the client being the initiator of the connection and the server the receiver. In the case of Git, it uses the pipe-fork mechanism to spawn a new task and then the protocol is used over the stdin/stdout pipes between the processes. The pipe-forked child process acts as the server and the parent Git process is the client.
+The protocol is designed as a client-server protocol with the client being the initiator of the connection and the server the receiver. In the case of Git, it uses the OS's pipe-fork mechanism to spawn a new process and then the protocol is used over the stdin/stdout pipes between the processes. The pipe-forked child process acts as the server and the parent Git process is the client.
 
 In the rest of this document, there are example operations demonstrating the protocol. In those examples, lines that begin with `S:` are lines sent by the server (the child process) and lines that begin with `C:` are lines sent by the client (the git process).
 
 ## The Server
 
-The server must support just four commands: `OK`, `ERR`, `D`, and `#`. Each command is documented below:
+The server must support sending just four commands: `OK`, `ERR`, `D`, and `#`. It must support receiving the commands the client sends as documented in the section below labeled "The Client". Each server command is documented below:
 
 ```
 OK [<arbitrary debugging information>]
@@ -100,9 +98,9 @@ ERR [<human readable error description>]
 The request or operation failed. The error code is used to signal the exact error.
 
 ```
-D <raw data>
+D <raw data encoded using URL-safe Base64 with no padding>
 ```
-Sends raw data to the client. There must be exactly one space after the 'D'. The values for '%', carriage return (0x0d), and line feed (0x0a) must be escaped using percent escaping of their ascii values in hexadecimal. So '%' is encoded as '%25' and carriage return and line feed are '%0d' and '%0a' respectively. Other characters may be percent escaped for easier debugging. All data lines are considered one data stream up to a terminating OK or ERR message.
+Sends a line of raw data to the client that is encoded with the URL-safe, Base64 scheme with no padding. This differs from the Assuan protocol this is based upon. There must be exactly one space after the `D`. All data lines are considered one data stream up to a terminating `OK` or `ERR` message.
 
 ```
 # <string>
@@ -113,12 +111,12 @@ In the Assuan protocol documentation there is a command called `INQUIRE` that is
 
 ## The Client
 
-The client must support five basic commands: `D`, `END`, `OPTION`, `BYE` and `#`. In addition they must also support the signing command: `SIGN`. It also must support the verification commands: `SIGNATURE`, and `VERIFY`. Each of the commands are documented below:
+The client must support sending five basic commands: `D`, `END`, `OPTION`, `BYE` and `#`. In addition to the basic commands the client must also support sending: `SIGN`, `SIGNATURE`, `VERIFY`. The client must support receiving the commands the server sends as documented in the section above labeled "The Server". Each client command is documented below:
 
 ```
-D <raw data>
+D <raw data encoded using URL-safe Base64 with no padding>
 ```
-Sends raw data to the server. This command is the same as the D command described above in the server section.
+Sends a line of raw data to the server that is encoded with the URL-safe, Base64 scheme with no padding. This command is the same as the `D` command described above in the server section.
 
 ```
 END
@@ -143,117 +141,109 @@ Comment line issued only for debugging purposes and totally ignored by servers.
 ```
 SIGN
 ```
-The sign command initiates a cryptographic signing operation. Immediately following the SIGN command, the client must send one or more `D` commands sending the server the data to be signed. The data is encoded as hexadecimal string to simplify client implementation. The data is terminated with an `END` command, signaling to the server to sign the data and return the signature.
+The `SIGN` command initiates a cryptographic signing operation. Immediately following the `SIGN` command, the client must send one or more `D` commands sending the server the data to be signed. The data is encoded as a URL-safe, Base64 encoded string to simplify client implementation. This enables supports 8-bit data streams over the text based protocol. The client first assembles the data to be signed, then Base64 encodes it, then it breaks it up into pkt-lines with the `D` command and sends them to the server. The data is terminated with an `END` command, signaling to the server that the data stream has terminated and it must sign the data and return the signature.
 
-The server will respond with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. The data sent from the server contains fields that are to be stored in the Git object. These fields include one `signtype`, zero or more `signoption`, and one `sign`. They are significant for the verification process and described below in the section on verification.
+The server responds with one or more `D` commands sending to the client the resulting data from the `SIGN` operation. The data sent by the server is terminated with either an `OK` command on success or an `ERR` command on error. 
 
 ```
 SIGNATURE
 ```
-Initiate the transfer of the `sig` data to the server. Immediately following the `SIGNATURE` command, the client must send one or more `D` command sending the signature data to the server. The data is terminated with an `END` command. The server will respond with `OK` if successful or `ERR` if there is an error. The signature data must be sent to the server before a `VERIFY` command is issued.
+Initiate the transfer of the signature data from the Git object. Immediately following the `SIGNATURE` command, the client sends one or more `D` commands to send the signature data found in the `sig` field to the server. The data is terminated with an `END` command. The server responds with `OK` if successful or `ERR` if there is an error. The signature data must be sent to the server *before* a `VERIFY` command is issued.
 
 ```
 VERIFY
 ```
-Initiate the transfer of the signed object data to the server and execute the signature verification operation. Immediately after the `VERIFY` command, the client must send one or more `D` commands to send the signed object data to the server. The data is terminated with an `END` command, signaling the server to execute the signature verification. The server will respond with zero or more `D` lines with status information about the digital signature. The server will then send either an `OK`, if the verification was successful, or `ERR` if not.
+Initiate the transfer of the object data to the server required to execute a digital signature verification operation. Immediately after the `VERIFY` command, the client sends one or more `D` commands to send the object data to the server. The data is encoded as a URL-safe, Base64 encoded string. This supports 8-bit data streams and preserves a bit-exact copy of the Git object data. The client first assembles the data that was signed, then Base64 encodes it, then breaks it up into `D` command lines and sends them as pkt-lines to the server. The data is terminated with an `END` command, signaling to the server that the data stream has terminated and it must execute the digital signature verification. The server responds with zero or more `D` lines returning the status information as a URL-safe, Base64 encoded data stream. The server terminates the response stream by sending either an `OK`, if the verification was successful, or `ERR` if not.
 
 ## Signing a Git Object
 
-The general flow of the Git object signing process is as follows:
+The flow of the Git object signing process is as follows:
 
-1. Git calculates the signing tool to execute from the config file and command line options.
+1. Git calculates which signing tool to execute from the config file and command line options.
 2. Git pipe-forks a child process to execute the signing tool. For the purposes of the protocol, Git is the client and the signing tool is the server.
 3. The signing tool starts the operation by sending an `OK` command.
-4. Git issues zero or more `OPTION` commands to the signing tool to pass the options from the config file. The signing tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the signing tool responds with an `ERR` command and the signing operation will end following steps 9 and 10 below. Git passes all options to the signing tool and some may not be relevant to the signing operation. The signing tool shall ignore all options that are not relevant and only return an `ERR` response to relevant options with invalid values. A good example is an option to set the identifier that has an invalid value such as an unknown identifier.
-5. Git issues zero or more `OPTION` commands to the signing tool to pass the '--sign-option' options from the command line. Because these come last, they override any prior options from the config file that have the same token.
-6. Git issues the `SIGN` command followed by one or more `D` commands to pass the Git object data to the signing tool to be signed. Git sends and `END` command after the last `D` command to signal the end of the data.
-7. If the signing tool successfully signs the data, it responds with one or more `D` commands containing data that must be stored in the Git object verbatim. The signing tool sends the `OK` command after the last `D` command to signal a successful signing.
-8. If the signing tool fails to sign the data, it responds with zero or more `D` commands containing detailed error data to be output from Git's stderr stream. The signing tool sends the `ERR` command after the last `D` command to signal a failed signing and the optional "reason" string with the `ERR` command is also output to Git's stderr stream.
-9. Git then sends the `BYE` command to conclude the signing operation.
+4. Git issues zero or more `OPTION` commands to the signing tool to pass the options from the config file first. The signing tool responds with `OK` in response to each `OPTION` if the option is accepted. If the option is not accepted, the signing tool responds with an `ERR` command and the signing operation ends following steps 9 and 10 below. Git passes all options to the signing tool and some may not be relevant to the signing operation. The signing tool shall ignore all options that are not relevant and only return an `ERR` response to relevant options with invalid values. A good example is an option to set the signer's identifier to a value that is invalid or unknown to the signing tool.
+5. Git issues zero or more `OPTION` commands to the signing tool to pass the '--sign-option' options from the command line. Because these come last, they override any prior options from the config file that have the same token. This matches Git's established behavior of command line options overriding config file options.
+6. Git issues the `SIGN` command followed by one or more `D` commands to pass the Git object data to the signing tool as a URL-safe, Base64 encoded data stream. Git sends and `END` command after the last `D` command to signal the end of the data stream.
+7. If the signing tool successfully signs the data, it responds with one or more `D` commands containing a URL-safe, Base64 encoded data stream that is stored in the Git object as a multi-line `sig` field. The signing tool sends the `OK` command after the last `D` command to signal a successful signing.
+8. If the signing tool fails to sign the data, it responds with zero or more `D` commands containing a URL-safe, Base64 encoded data stream that, when decoded, has a detailed error message to be output from Git's stderr stream. The signing tool sends the `ERR` command after the last `D` command to signal a failed signing. The optional "reason" string with the `ERR` command is also output to Git's stderr stream.
+9. Git sends the `BYE` command to conclude the signing operation whether is succeeded or failed.
 10. The signing tool acknowledges the operation ending by sending an `OK` command and exiting execution.
 
-An example successful signing operation is illustrated below. The lines beginning with `S:` are sent from the signing tool to Git and lines starting with `C:` are sent from Git to the signing tool. **NOTE**: These lines are encoded in pkt-line format that starts with four hexadecimal characters that specify the length of the line. **NOTE:** Every byte of the Git object data passed to the signing tool is significant, this includes the line feed (0x0a) character at the end of each line. To pass line feed as data to the signing tool it must be escaped as `%0a`. The returned signature data also has significant line feeds and will also have escaped line feed characters.
+An example successful signing operation is illustrated below. The lines beginning with `S:` are sent from the signing tool to Git and lines starting with `C:` are sent from Git to the signing tool. **NOTE**: These lines are encoded in pkt-line format that starts with four hexadecimal characters that specify the length of the line. **NOTE:** Every byte of the Git object data passed to the signing tool is significant, this includes the line feed (0x0a) character at the end of each line. To pass the object correctly, it is first encoded using the URL-safe, Base64 encoding scheme to preserve its integrity. The returned signature data is also encoded with the URL-safe, Base64 encoding but does not require decoding by Git. The digital signature is intended to be stored verbatim in the Git object.
 
 ```
-S: 0006OK
-C: 0014# config options
-C: 002eOPTION identifier=Jane Hacker <jane@h.com>
-S: 0006OK
-C: 001fOPTION minTrustLevel=marginal
-S: 0006OK
-C: 0017OPTION armored=true
-S: 0006OK
-C: 0018OPTION detached=true
-S: 0006OK
-C: 0018# end config options
-C: 001a# command line options
-C: 002bOPTION identifier=Joe Coder <jeo@c.com>
-S: 0006OK
-C: 001e# end command line options
-C: 0008SIGN
-C: 0013D tag v0.0.1%0a
-C: 0026D tagger: Joe Coder <joe@c.com>%0a
-C: 0005D %0a
-C: 0017D First release.%0a
-C: 0007END
-S: 0016D signtype openpgp
-S: 002bD sign -----BEGIN PGP SIGNATURE-----%0a
-S: 000bD  %0a
-S: 004aD  iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
-S: 004aD  fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
-S: 002aD  8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
-S: 000fD  =1Fby%0a
-S: 0025D  -----END PGP SIGNATURE-----%0a
-S: 0006OK
-C: 0007BYE
-S: 0006OK
+S: 0007OK
+C: 0015# config options
+C: 0036OPTION identifier=Awesome Hacker <ah@example.com>
+S: 0007OK
+C: 0022OPTION minTrustLevel=marginal
+S: 0007OK
+C: 0018OPTION armored=true
+S: 0007OK
+C: 0019OPTION detached=true
+S: 0007OK
+C: 0019# end config options
+C: 001b# command line options
+C: 0033OPTION identifier=Great Coder <gc@example.net>
+S: 0007OK
+C: 001f# end command line options
+C: 0009SIGN
+C: 005dD dGFnIHYwLjAuMQp0YWdnZXI6IEdyZWF0IENvZGVyIDxnY0BleGFtcGxlLm5ldD4KCkZpcnN0IHJlbGVhc2UuCg
+C: 0008END
+S: 0047D sig 9ALziQIzBAABCgAdFiEEGldQSkb24AhiiioZSDIgduUQvtQFAmDdAL4ACgkQ
+S: 0047D  UQvtSIlQ__fty0UB3Iev7k6WCgze___b64gG84-ApWDXrBmcmd0Dd-5Sg3IiXU7
+S: 0047D  KEdwIk9YSDYacg5hf_t6E07_3exN-1Nnj50aPIz_3bNcC5tA_7XVMHzY4lRVBVq
+S: 0047D  6ayiN7rUd4L7Mt6KzmkgghGbXoif0ouzNpMlwdNq1qD-g1qP-bxZ-87qwwJhQ2-
+S: 0047D  V4IpwfpTX7ckuiok1-GWT9-i_opnoN_4-DKh2wyHjmpFAV6AWvh-m4xf9LpLofv
+S: 0047D  nHpX0xa_0k8yHIe6ForbN1iNYtrY1ofX3iIuSiee8Ru0fvOApuO1C10EoAraGAM
+S: 0047D  g-LySP4Rkjok91lALrcaeT47WSwHvUrOjqUDEW8mF3300KAzFVD6-Kls1VG8iaI
+S: 0047D  iBfnrc9Jjli_EkBDATKhZ_ULkpDOep57MmK79spXPluSps3LmpckRHUrCbDJ-oB
+S: 0047D  -KmxaK-g7xo8hpP-61yKyxK8ay9hsNgbQmR45vtsXNe2U7wmQ_TcZ_FW78hqtfu
+S: 0047D  3k_W8HTVUJ9yCU2wHOVVYq8j_vfHvaY9GsOZX-wxCiZrFVZ3IcPNVrercwv__V5
+S: 0047D  Xbi9tAIX3MnIJPgqib8P0UQ6Ib2qcTOuttoghVS-lz5PWNTfj5Ct3NUHqVmBYyQ
+S: 0029D  fZh6wNqgAII70Z95zHmMrVLu4PR_Ofnyo
+S: 0007OK
+C: 0008BYE
+S: 0007OK
 ```
 
 An example of a signing operation that fails because of a bad `OPTION` set by Git. In this example Git passes the signing identity and the signing tool does not have an identity by that name so it responds with the `ERR` command and the reason for the error.
 
 ```
-S: 0006OK
-C: 002eOPTION identifier=Jane Hacker <jane@h.com>
-S: 001aERR Unknown identifier
-C: 0007BYE
-S: 0006OK
+S: 0007OK
+S: 003bOPTION identifier=Unknown Hacker <unknown@example.org>
+S: 001bERR Unknown identifier
+S: 0008BYE
+S: 0007OK
 ```
 
 ### The Returned Signature Data
 
-When a signing tool generates a successful signature, it sends to Git one or more `D` commands with signature related data that is intended to be stored verbatim inside of the Git object. The data is formatted so that Git can easily execute a signature verification process in the future. Each line of the signature data starts with a field name and a space followed by data. Multi-line fileds have subsequent lines that start with a space to identify them as part of a multi-line field value. 
-
-There are three different fields that may be used in the signature data that are defined below:
+When a signing tool generates a successful signature, it sends to Git one or more `D` commands with signature related data that is intended to be stored verbatim inside of the Git object. The data sent is in the form of a multi-line Git `sig` field with a self-describing digital signature. 
 
 ```
-signtype <signature scheme name>
+sig <QB64 encoded signature data>
 ```
-The `signtype` field identifies the signing scheme used to generate and verify this signature. The signature scheme name must match the name used in the config file and also on the command line. For GPG signatures the scheme name is `openpgp`. For GPGSM signatures the scheme name is `x509`. For OpenSSH signatures the scheme name is `openssh`. With this design, Git no longer has to know any details specific to any signature scheme and nothing needs to be changed in Git to use new signature schemes in the future. There may only be one `signtype` field.
+The multi-line `sig` field specifies the signature data generated in the signing operation. The signature data is encoded in the [QB64][4] format which is a URL-safe Base64 encoded type tag followed by a URL-safe Base64 (no padding) encoded digital signature. The `sig` field is wrapped at 64 Base64 characters per line for easy viewing on an 80 column terminal even when included in a mergetag. This design ensures that the signature is stored in a way that not only describes the type of signature but also preserves the raw binary generated by the signing tool. It is the signing tool's responsibility to generate a self-contained, "detached" signature that contains all data necessary for the verification of the signature except the data that was signed.
 
-```
-signoption <option name> = <option value>
-```
-The `signoption` field specifies options that Git passes to the verification tool using the `OPTION` command during a signature verification operation. There may be zero or more `signoption` fields in the signature data.
-
-```
-sign <signature data>
-```
-The `sign` field specifies the signature data generated in the signing operation. There shall be only one `sign` field in the signature data and it may contain a multi-line field value.
-
-The resulting signed Git object--in this case a tag--from the successful
-signature example above is as follows:
+The resulting signed Git object--in this case a tag--from the successful signature example above is as follows:
 
 ```
 tag v0.0.1
-tagger: Joe Coder <joe@c.com>
-signtype openpgp
-sign -----BEGIN PGP SIGNATURE-----%0a
- %0a
- iHUEABYKAB0WIQTXto4BPKlfA2YYS5Pn3hDaTgk8fAUCX5C+ugAKCRDn3hDaTgk8%0a
- fOk8AQCRGkdNGMXhJ95e5QIHk44rvfNsyibxY6ZvTXdLQJvt/gEAlFCeEM3SfaDL%0a
- 8RQR368L0+caDlaZW51VZVP2UBXP6w0=%0a
- =1Fby%0a
- -----END PGP SIGNATURE-----%0a
+tagger: Great Coder <gc@example.net>
+sig 9ALziQIzBAABCgAdFiEEGldQSkb24AhiiioZSDIgduUQvtQFAmDdAL4ACgkQ
+ duUQvtSIlQ__fty0UB3Iev7k6WCgze___b64gG84-ApWDXrBmcmd0Dd-5Sg3IiX
+ 7c6AKEdwIk9YSDYacg5hf_t6E07_3exN-1Nnj50aPIz_3bNcC5tA_7XVMHzY4lR
+ BVqI-v6ayiN7rUd4L7Mt6KzmkgghGbXoif0ouzNpMlwdNq1qD-g1qP-bxZ-87qw
+ JhQ2-AgUV4IpwfpTX7ckuiok1-GWT9-i_opnoN_4-DKh2wyHjmpFAV6AWvh-m4x
+ 9LpLofvNHXnHpX0xa_0k8yHIe6ForbN1iNYtrY1ofX3iIuSiee8Ru0fvOApuO1C
+ 0EoAraGAMoVSg-LySP4Rkjok91lALrcaeT47WSwHvUrOjqUDEW8mF3300KAzFVD
+ -Kls1VG8iaIl-9iBfnrc9Jjli_EkBDATKhZ_ULkpDOep57MmK79spXPluSps3Lm
+ ckRHUrCbDJ-oBejH-KmxaK-g7xo8hpP-61yKyxK8ay9hsNgbQmR45vtsXNe2U7w
+ Q_TcZ_FW78hqtfu5q53k_W8HTVUJ9yCU2wHOVVYq8j_vfHvaY9GsOZX-wxCiZrF
+ Z3IcPNVrercwv__V5dGCXbi9tAIX3MnIJPgqib8P0UQ6Ib2qcTOuttoghVS-lz5
+ WNTfj5Ct3NUHqVmBYyQNlSfZh6wNqgAII70Z95zHmMrVLu4PR_Ofnyo
 
 First release.
 ```
@@ -264,19 +254,19 @@ A signed Git commit using the new format looks like:
 tree eebfed94e75e7760540d1485c740902590a00332
 parent 04b871796dc0420f8e7561a895b52484b701d51a
 author A U Thor <author@example.com> 1465981137 +0000
-committer C O Mitter <committer@example.com> 1465981137 +0000
-signtype openpgp
-sign -----BEGIN PGP SIGNATURE-----%0a
- Version: GnuPG v1%0a
- %0a
- iQEcBAABAgAGBQJXYRjRAAoJEGEJLoW3InGJ3IwIAIY4SA6GxY3BjL60YyvsJPh/%0a
- HRCJwH+w7wt3Yc/9/bW2F+gF72kdHOOs2jfv+OZhq0q4OAN6fvVSczISY/82LpS7%0a
- DVdMQj2/YcHDT4xrDNBnXnviDO9G7am/9OE77kEbXrp7QPxvhjkicHNwy2rEflAA%0a
- zn075rtEERDHr8nRYiDh8eVrefSO7D+bdQ7gv+7GsYMsd2auJWi1dHOSfTr9HIF4%0a
- HJhWXT9d2f8W+diRYXGh4X0wYiGg6na/soXc+vdtDYBzIxanRqjg8jCAeo1eOTk1%0a
- EdTwhcTZlI0x5pvJ3H0+4hA2jtldVtmPM4OTB0cTrEWBad7XV6YgiyuII73Ve3I=%0a
- =jKHM%0a
- -----END PGP SIGNATURE-----%0a
+committer Great Coder <gc@example.net> 1465981137 +0000
+sig 9ALziQIzBAABCgAdFiEEGldQSkb24AhiiioZSDIgduUQvtQFAmDdQisACgkQ
+ duUQvtTS9g_-I7GH-Lmbo6RJEWLMig4wd9bA1yKyiUgAWTjBT2mO86Mp4fJPVjK
+ VbK8-Jc6p0EdQzS6Eg0wUkHj2Xn8Jh8CMc_21hjBXLWv2suBOtaQlue7K-1TTrd
+ mGRw_VFGY4rtJImA25pbT52m7hT3xTkuobnTmbiVkBSYjPFTumlBZFhFc__aT2M
+ RW53uIKDL--PV0nuMr_4HKAvtdRJyymrSmrwvFjc2MW3i4OY9RDTtEjcwb3ZTLO
+ v1Mbf9Z454cuK3lMaNRoHx8Xio05wQut89LbqwjH0Mw-xVtTvwypX5prLlnzmUD
+ QMnnw4thWtiMzrlVwmxzg8Kq1xiitGSIVIVdv6duRsohMQ_lFovB78j8oDO2VLp
+ xFoHR34FfaTvmr2n1aMZlIlLlDvxIBk39kIhdy3MtmXvVlE92Smj3aZWmwicUhT
+ tJpB-T3TFkruSPh8Ga5TPyZNq7NQnTW-2SVaxLWFROX3NMzLNiyrkbSrSV3jT9v
+ hQNrvKeqr8MVVXUHuoPz7B5LiK_-lKCCjMLPHJYkobzV3Jfbo9Br1RDm0yitcUu
+ XqB88kLtY-JppSBaQrDMLgg-nZFF9lR4gEUnnj5NO3G130inP2ci0vC5Ctv34xA
+ gxypZ_ZCCX7xL5Hj_9Lb8aFvL4kIra0bBVBK9uNhsWRUbr0nKf8hYaE
 
 signed commit
 
@@ -290,23 +280,23 @@ tree c7b1cff039a93f3600a1d18b82d26688668c7dea
 parent c33429be94b5f2d3ee9b0adad223f877f174b05d
 parent 04b871796dc0420f8e7561a895b52484b701d51a
 author A U Thor <author@example.com> 1465982009 +0000
-committer C O Mitter <committer@example.com> 1465982009 +0000
+committer Awesome Hacker <ah@example.com> 1465982009 +0000
 mergetag object 04b871796dc0420f8e7561a895b52484b701d51a
  type commit
  tag signedtag
- tagger C O Mitter <committer@example.com> 1465981006 +0000
- signtype openpgp
- sign -----BEGIN PGP SIGNATURE-----%0a
-  Version: GnuPG v1%0a
-  %0a
-  iQEcBAABAgAGBQJXYRhOAAoJEGEJLoW3InGJklkIAIcnhL7RwEb/+QeX9enkXhxn%0a
-  rxfdqrvWd1K80sl2TOt8Bg/NYwrUBw/RWJ+sg/hhHp4WtvE1HDGHlkEz3y11Lkuh%0a
-  8tSxS3qKTxXUGozyPGuE90sJfExhZlW4knIQ1wt/yWqM+33E9pN4hzPqLwyrdods%0a
-  q8FWEqPPUbSJXoMbRPw04S5jrLtZSsUWbRYjmJCHzlhSfFWW4eFd37uquIaLUBS0%0a
-  rkC3Jrx7420jkIpgFcTI2s60uhSQLzgcCwdA2ukSYIRnjg/zDkj8+3h/GaROJ72x%0a
-  lZyI6HWixKJkWw8lE9aAOD9TmTW9sFJwcVAzmAuFX2kUreDUKMZduGcoRYGpD7E=%0a
-  =jpXa%0a
-  -----END PGP SIGNATURE-----%0a
+ tagger Awesome Hacker <ah@example.com> 1465981006 +0000
+ sig 9ALziQIzBAABCgAdFiEEqEf0Jz30V4hoCuaLymEAVqGjingFAmDdRA4ACgkQ
+  VqGjinjODA_-LBCRq__CeFG9x1O7vPkDofXoI7sAk14OMqbkn6U9f3XaaQ5o1mu
+  71HgtC_Fw-gnxM-gtbBDQu1qziq7uQw2Uhgsxp5QUr9LnENxrZtYGnaINWO2COW
+  mNXWiKzu6zEUeLF8UO8frMADQXxdu1iYbRtwKbRU5bnpHb2FtuxzY3Gc5muI0ZF
+  xWeaJRcsRSaVq0wLDccz98XuMSeTbUuf3Galj_vZmJkXNUOP6G6Ux7yqH2LwDC6
+  K5Iw_MzRT5ymZcGNqzJxH0D-liCnoJhighsh_HoTBxHupmyu_v_IQxtytiuAQ1R
+  drQEarz3v1A3ju46v3Rx4QSAKBemZ5xm74ZTf1kOC1NiueuwFV6t6ynwN4ddq1Q
+  Tnua-jUVndlkgmNO16H8J6LPZaall2IkVydwCmctaFGLW5NQ8AlFC3OdsV1nHfC
+  weBvfdTM_Pj7S2ablZto_G8wmPaRoeq3TTBIKLFPLsAYKW4Mi_xMTCLKMwyzOrK
+  27qSnUbZv6IfcpfO2Wd94RT5p0CKDH5cB8GXzMlZgecGozEnkse4EjrcwK20R9v
+  Cw-VzoY8DGrBJKoN3QV1t40eIbcl_CCbS4FLcL7-4wtBdUR779j_1vcGmcEOiwY
+  z6AIfrhHvVj06tQEZ-lQzw9x08YXmQF2d3z3en1vkBHDunRm_I5rBSg
 
  signed tag
 
@@ -318,29 +308,26 @@ signed tag
 
 signed tag message body
 
-# Signature made Wed Jun 15 08:56:46 2016 UTC using RSA key ID B7227189
-# Good signature from "Eris Discordia <discord@example.net>"
-# WARNING: This key is not certified with a trusted signature!
-#          There is no indication that the signature belongs to the owner.
-# Primary key fingerprint: D4BE 2231 1AD3 131E 5EDA  29A4 6109 2E85 B722 7189
+# gpg: Signature made Wed 30 Jun 2021 09:26:54 PM PDT
+# gpg:                using RSA key A847F4273DF45788680AE68BCA610056A1A38A78
+# gpg: Good signature from "Awesome Hacker <ah@example.com>" [ultimate]
 ```
 
 ## Verifying a Signed Git Object
 
 The general flow of the signed Git object verification process is as follows:
 
-1. Git parses the `signtype` field from the signed object to determine the signature type.
+1. Git parses the QB64 type tag from the multi-line `sig` to determine the signature type.
 2. Git calculates the verification tool to execute from the config file and command line options using the signature type.
 3. Git pipe-forks a child process to execute the verification tool. For the purposes of the protocol, Git is the client and the verification tool is the server.
 4. The verification tool starts the operation by sending an `OK` command.
-5. Git parses any `signoption` fields from the signed object and issues `OPTION` commands for each `signoption` field. The verification tool responds with `OK` in response to each `OPTION` if the option is valid. If the option is not valid, the verification tool responds with an `ERR` command and the verification operation ends, executing steps 11 and 12 below. Git passes all options to the verification tool and some may not be relevant. The verification tool shall ignore options that are not relevant and only respond with `ERR` for relevant options with invalid values.
-6. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the config file. Because these come after the options from the signed object, these override any prior options from the signed object that have the same token.
-7. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the command line. Because these come last, they override any prior options from the signed object and the config file that have the same token.
-8. Git parses the `sign` field and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification operation is terminated using steps X and Y below.
-9. Git sends the `VERIFY` command followed by one or more `D` commands to send the object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
-10. The verification tool responds with one or more `D` commands with the results of the verification process. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
-11. Git then sends the `BYE` command to end the operation.
-12. The verification tool acknowledges the operation ending by sending an `OK` command and then exits execution.
+5. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the config file.
+6. Git issues zero or more `OPTION` commands to the verification tool to pass the options from the command line. Because these come after the options from the config file, they override any prior options that have the same name.
+7. Git gets the `sig` field value and issues the `SIGNATURE` command followed by `D` commands to send the signature data to the verification tool. Git sends the `END` command after the last `D` command to signal the end of the signature data. The verification tool responds with either an `OK` or `ERR` command to signal success or failure. On failure the verification operation is terminated using steps 10 and 11 below.
+8. Git sends gathers the object data, encodes it using the URL-safe, Base64 encoding scheme and then sends the `VERIFY` command followed by one or more `D` commands to send the encoded object data to the verification tool for signature verification. Git sends the `END` command to signal the end of the object data.
+9. The verification tool responds with one or more `D` commands with the results of the verification process encoded in URL-safe, Base64 encoding. If the verification process was successful, the verification tool sends the `OK` command after the last `D` command to signal the end of the result data. If the verification failed, the verification tool sends the `ERR` command after the last `D` command to signal the end of the result data.
+10. Git then sends the `BYE` command to end the operation.
+11. The verification tool acknowledges the operation ending by sending an `OK` command and then exits execution.
 
 An example successful verification operation is illustrated below. The lines beginning with `S:` are sent from the verification tool to Git and lines starting with `C:` are sent from Git to the verification tool.
 
@@ -429,3 +416,4 @@ S: 0006OK
 [1]: https://github.com/TrustFrame/git-cryptography-protocol
 [2]: https://www.gnupg.org/documentation/manuals/assuan/index.html
 [3]: https://github.com/git/git/blob/master/Documentation/technical/protocol-common.txt
+[4]: https://github.com/decentralized-identity/keri/blob/master/kids/kid0001.md
